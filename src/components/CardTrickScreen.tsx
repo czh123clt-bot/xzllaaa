@@ -281,7 +281,20 @@ export default function CardTrickScreen({ gender, zodiac, onBack }: CardTrickScr
         })}
       </div>
 
-
+      {/* Absolute screen-wide transparent overlay during physical face-down to intercept ANY click reliably */}
+      {isFaceDownActive && (
+        <div 
+          onClick={(e) => {
+            e.stopPropagation();
+            handleFaceDownScreenTap();
+          }}
+          onTouchStart={(e) => {
+            e.stopPropagation();
+            handleFaceDownScreenTap();
+          }}
+          className="fixed inset-0 bg-transparent opacity-0 z-45 cursor-pointer"
+        />
+      )}
 
       {/* --- LEVEL 2: CLEAN RESULT REVEAL MODAL (No Gold, Deep space theme) --- */}
       <AnimatePresence>
@@ -295,7 +308,7 @@ export default function CardTrickScreen({ gender, zodiac, onBack }: CardTrickScr
               setIsLockedBySpectator(false);
               setSpectatorSelectedIndex(null);
             }}
-            className="fixed inset-0 bg-[#060b17]/95 z-40 flex flex-col justify-center items-center p-6 select-none cursor-pointer text-center"
+            className="fixed inset-0 bg-[#060b17]/95 z-50 flex flex-col justify-center items-center p-6 select-none cursor-pointer text-center"
           >
             {/* Elegant deep celestial light effect */}
             <div className="absolute top-1/2 left-1/2 w-64 h-64 rounded-full bg-blue-500/10 blur-[100px] -translate-x-1/2 -translate-y-1/2 pointer-events-none" />

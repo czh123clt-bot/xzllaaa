@@ -18,12 +18,27 @@ export default function App() {
     history: [],
   });
 
+  const requestSensorPermissionEarly = async () => {
+    if (typeof window !== 'undefined' && 'DeviceOrientationEvent' in window) {
+      const DeviceOrientation = DeviceOrientationEvent as any;
+      if (typeof DeviceOrientation.requestPermission === 'function') {
+        try {
+          await DeviceOrientation.requestPermission();
+        } catch (e) {
+          console.warn('Silent early permission request:', e);
+        }
+      }
+    }
+  };
+
   const handleGenderSelect = (gender: 'male' | 'female') => {
     setState(prev => ({ ...prev, gender }));
+    requestSensorPermissionEarly();
   };
 
   const handleZodiacSelect = (selectedZodiac: ZodiacInfo) => {
     setState(prev => ({ ...prev, selectedZodiac }));
+    requestSensorPermissionEarly();
   };
 
   const handleBackToGender = () => {
