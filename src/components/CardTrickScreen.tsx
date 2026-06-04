@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
-  ArrowLeft, RotateCcw, Sparkles, Compass, Sparkle, Eye
+  ArrowLeft, RotateCcw, Compass, Sparkle, Eye
 } from 'lucide-react';
 import { Card, ZodiacInfo } from '../types';
 import { generateTrickCards, getSuitSymbol, getSuitName } from '../utils/cardUtils';
@@ -13,6 +13,8 @@ interface CardTrickScreenProps {
   zodiac: ZodiacInfo;
   onBack: () => void;
 }
+
+let sensorRequestDone = false;
 
 export default function CardTrickScreen({ gender, zodiac, onBack }: CardTrickScreenProps) {
   // --- Game State ---
@@ -59,27 +61,9 @@ export default function CardTrickScreen({ gender, zodiac, onBack }: CardTrickScr
   };
 
   // --- iOS Sensor Permission Requester ---
+  // No popups requested; listen silently by default to events
   const requestSensorPermission = async () => {
-    if (typeof window !== 'undefined' && 'DeviceOrientationEvent' in window) {
-      const requestPermission = (DeviceOrientationEvent as any).requestPermission;
-      if (typeof requestPermission === 'function') {
-        try {
-          const state = await requestPermission();
-          if (state === 'granted') {
-            setSensorStatus('active');
-            logSecret('📡 陀螺仪已成功授权');
-          } else {
-            setSensorStatus('denied');
-          }
-        } catch (e) {
-          setSensorStatus('denied');
-        }
-      } else {
-        setSensorStatus('active');
-      }
-    } else {
-      setSensorStatus('unsupported');
-    }
+    setSensorStatus('active');
   };
 
   // --- Real Physical Orientation Listener ---
@@ -112,12 +96,14 @@ export default function CardTrickScreen({ gender, zodiac, onBack }: CardTrickScr
 
   // Request permission on any user touch/interaction with this screen
   const handleInteractionInit = () => {
+    if (sensorRequestDone) return;
+    sensorRequestDone = true;
     requestSensorPermission();
   };
 
-  const isFaceDownActive = isPhysicallyFaceDown || isSimulatedFaceDown;
+  const isFaceDownActive = (isPhysicallyFaceDown || isSimulatedFaceDown) && !selectedCard;
 
-  // --- Spectator Blind Touch Action ---
+  // --- Spectator Blind Touch Action (Strictly locks and immediately displays the magnified forced card) ---
   const handleFaceDownScreenTap = () => {
     if (isLockedBySpectator) return;
     if (soundEnabled) playTickSound();
@@ -127,34 +113,41 @@ export default function CardTrickScreen({ gender, zodiac, onBack }: CardTrickScr
       c => c.suit === zodiac.forcedCard.suit && c.value === zodiac.forcedCard.value
     );
 
-    let chosenIdx = forcedCardIdx !== -1 ? forcedCardIdx : 0;
+    const chosenIdx = forcedCardIdx !== -1 ? forcedCardIdx : 0;
 
-    if (hasTriggeredTrick) {
-      // Repeat checks safeguards
-      chosenIdx = Math.floor(Math.random() * 9);
-      logSecret(`防重复保障: 分配随机牌 [${chosenIdx + 1}]`);
-    } else {
-      setHasTriggeredTrick(true);
-      logSecret(`首次盲选: 已锁定转运本命牌 [${chosenIdx + 1}]: ${getSuitName(cards[chosenIdx].suit)}${cards[chosenIdx].value}`);
-    }
-
+    setHasTriggeredTrick(true);
     setSpectatorSelectedIndex(chosenIdx);
     setIsLockedBySpectator(true);
+
+    // Immediately display magnified card!
+    const card = cards[chosenIdx];
+    if (card) {
+      if (soundEnabled) playChimeSound();
+      setSelectedCard(card);
+      logSecret(`命定重现: 契约牌放大揭晓 -> ${getSuitName(card.suit)}${card.value}`);
+    }
+
+    // Deactive simulated mode
+    setIsSimulatedFaceDown(false);
   };
 
   // Monitor physical alignment
   useEffect(() => {
     if (!isFaceDownActive && isLockedBySpectator && spectatorSelectedIndex !== null) {
       const card = cards[spectatorSelectedIndex];
-      if (card) {
+      if (card && !selectedCard) {
         if (soundEnabled) playChimeSound();
         setSelectedCard(card);
         logSecret(`命定重现: 契约牌放大揭晓 -> ${getSuitName(card.suit)}${card.value}`);
       }
     }
-  }, [isFaceDownActive, isLockedBySpectator, spectatorSelectedIndex, cards]);
+  }, [isFaceDownActive, isLockedBySpectator, spectatorSelectedIndex, cards, selectedCard]);
 
   const handleNormalCardClick = (card: Card, index: number) => {
+    if (isFaceDownActive) {
+      handleFaceDownScreenTap();
+      return;
+    }
     if (soundEnabled) playChimeSound();
     setSelectedCard(card);
     logSecret(`点击校对牌 [${index + 1}]: ${getSuitName(card.suit)}${card.value}`);
@@ -162,7 +155,12 @@ export default function CardTrickScreen({ gender, zodiac, onBack }: CardTrickScr
 
   return (
     <div 
-      onClick={handleInteractionInit}
+      onClick={(e) => {
+        handleInteractionInit();
+        if (isFaceDownActive) {
+          handleFaceDownScreenTap();
+        }
+      }}
       onTouchStart={handleInteractionInit}
       className="flex flex-col w-full max-w-md mx-auto px-4 py-3 h-full justify-between relative overflow-hidden select-none bgs-viewport"
     >
@@ -216,7 +214,10 @@ export default function CardTrickScreen({ gender, zodiac, onBack }: CardTrickScr
               key={card.id}
               whileHover={{ scale: 1.03 }}
               whileTap={{ scale: 0.97 }}
-              onClick={() => handleNormalCardClick(card, idx)}
+              onClick={(e) => {
+                e.stopPropagation();
+                handleNormalCardClick(card, idx);
+              }}
               className="aspect-[2/3] w-full rounded-xl bg-white shadow-[0_4px_12px_rgba(0,0,0,0.15)] flex flex-col justify-between p-2.5 relative select-none cursor-pointer overflow-hidden group border border-[#e2e8f0]"
             >
               {/* Corner Value Label (Top-Left) */}
@@ -255,80 +256,6 @@ export default function CardTrickScreen({ gender, zodiac, onBack }: CardTrickScr
           );
         })}
       </div>
-
-      {/* --- LEVEL 1: MAGICAL FACE-DOWN BLACK SCREEN --- */}
-      <AnimatePresence>
-        {isFaceDownActive && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            onClick={handleFaceDownScreenTap}
-            className="fixed inset-0 bg-black z-50 flex flex-col justify-between items-center p-6 select-none text-center cursor-pointer"
-          >
-            {/* Hidden debug escape button */}
-            <div className="w-full flex justify-end">
-              {isSimulatedFaceDown && (
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setIsSimulatedFaceDown(false);
-                  }}
-                  className="px-2.5 py-1 rounded bg-blue-card border border-blue-border text-white text-[9px] font-serif tracking-wider hover:bg-blue-card/80 transition-colors flex items-center gap-1 cursor-pointer"
-                >
-                  朝上还原
-                </button>
-              )}
-            </div>
-
-            {/* Orbit Core portal */}
-            <div className="flex flex-col items-center justify-center my-auto gap-5">
-              <motion.div
-                animate={{ 
-                  scale: [1, 1.03, 1],
-                  rotate: 360 
-                }}
-                transition={{ 
-                  scale: { duration: 4, repeat: Infinity, ease: 'easeInOut' },
-                  rotate: { duration: 60, repeat: Infinity, ease: 'linear' }
-                }}
-                className="w-28 h-28 rounded-full border border-blue-border border-t-white/30 relative flex items-center justify-center bg-[#090e1a]/40 shadow-[0_0_30px_rgba(56,189,248,0.05)]"
-              >
-                <div className="absolute inset-2.5 rounded-full border border-dashed border-blue-border/20 flex items-center justify-center">
-                  <Sparkles className="w-4.5 h-4.5 text-white/20 animate-pulse" />
-                </div>
-              </motion.div>
-
-              <div className="space-y-2 max-w-xs">
-                {!isLockedBySpectator ? (
-                  <>
-                    <h2 className="text-sm font-serif tracking-[0.2em] text-[#f8fafc] uppercase">
-                      ✧ 混沌星盘已盖 ✧
-                    </h2>
-                    <p className="text-[10px] text-[#e2e2e7]/70 leading-relaxed font-serif px-2">
-                      星轴进入静默轨迹。<br />请观众指间凝聚灵光，在漆黑上<strong>任意按着一下</strong>锁定直觉。
-                    </p>
-                  </>
-                ) : (
-                  <>
-                    <h2 className="text-sm font-serif tracking-[0.2em] text-cyan-300 uppercase animate-pulse">
-                      ✧ 灵能契约结成 ✧
-                    </h2>
-                    <p className="text-[10px] text-[#e2e2e7]/85 leading-relaxed font-serif px-2">
-                      转运光斑已点亮对应牌宫。<br />现在请将手机<strong>拿到面前翻转朝上</strong>吧。
-                    </p>
-                  </>
-                )}
-              </div>
-            </div>
-
-            {/* Faint footer */}
-            <div className="text-[7px] text-[#e2e2e7]/20 font-serif tracking-[0.3em] uppercase">
-              REVOLUTION GYRO SENSOR ACTIVE
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
 
       {/* --- LEVEL 2: CLEAN RESULT REVEAL MODAL (No Gold, Deep space theme) --- */}
       <AnimatePresence>
@@ -454,8 +381,17 @@ export default function CardTrickScreen({ gender, zodiac, onBack }: CardTrickScr
         </motion.div>
       )}
 
-      {/* Minimalistic Star footer badge */}
-      <div className="text-[7px] text-[#e2e2e7]/30 font-serif tracking-[0.2em] uppercase text-center py-1 select-none">
+      {/* Minimalistic Star footer badge with fallback simulation trigger (no text prompt) */}
+      <div 
+        onClick={() => {
+          setIsSimulatedFaceDown(!isSimulatedFaceDown);
+          if (!isSimulatedFaceDown) {
+            setIsLockedBySpectator(false);
+            setSpectatorSelectedIndex(null);
+          }
+        }}
+        className="text-[7px] text-[#e2e2e7]/20 font-serif tracking-[0.2em] uppercase text-center py-1 select-none cursor-pointer hover:text-sky-400/40 transition-colors"
+      >
         ✧ CELESTIAL ALIGNMENT TAROT ✧
       </div>
     </div>
