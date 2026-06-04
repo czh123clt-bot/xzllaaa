@@ -15,6 +15,7 @@ interface CardTrickScreenProps {
 }
 
 let sensorRequestDone = false;
+const triggeredZodiacIds = new Set<string>();
 
 export default function CardTrickScreen({ gender, zodiac, onBack }: CardTrickScreenProps) {
   // --- Game State ---
@@ -59,9 +60,28 @@ export default function CardTrickScreen({ gender, zodiac, onBack }: CardTrickScr
   };
 
   // --- iOS Sensor Permission Requester ---
-  // No popups requested; listen silently by default to events
+  // Requested silently to enable DeviceOrientation on iOS devices without custom dialogs
   const requestSensorPermission = async () => {
-    setSensorStatus('active');
+    if (typeof window !== 'undefined' && 'DeviceOrientationEvent' in window) {
+      const DeviceOrientation = DeviceOrientationEvent as any;
+      if (typeof DeviceOrientation.requestPermission === 'function') {
+        try {
+          const state = await DeviceOrientation.requestPermission();
+          if (state === 'granted') {
+            setSensorStatus('active');
+            logSecret('📡 陀螺仪已成功授权');
+          } else {
+            setSensorStatus('denied');
+          }
+        } catch (e) {
+          setSensorStatus('denied');
+        }
+      } else {
+        setSensorStatus('active');
+      }
+    } else {
+      setSensorStatus('unsupported');
+    }
   };
 
   // --- Real Physical Orientation Listener ---
@@ -72,8 +92,8 @@ export default function CardTrickScreen({ gender, zodiac, onBack }: CardTrickScr
       const handleOrientation = (event: DeviceOrientationEvent) => {
         const beta = event.beta; // Pitch / Tilt [-180, 180]
         if (beta !== null) {
-          // Absolute pitch > 140 means phone flipped face-down on table
-          const faceDown = Math.abs(beta) > 135;
+          // Absolute pitch > 110 means phone flipped face-down on table (lenient for slide-under clicks)
+          const faceDown = Math.abs(beta) > 110;
           setIsPhysicallyFaceDown(prev => {
             if (prev !== faceDown) {
               logSecret(faceDown ? '📡 重力感应：星阵面朝下方' : '📡 重力感应：恢复面朝上');
@@ -101,17 +121,27 @@ export default function CardTrickScreen({ gender, zodiac, onBack }: CardTrickScr
 
   const isFaceDownActive = isPhysicallyFaceDown && !selectedCard;
 
-  // --- Spectator Blind Touch Action (Strictly locks and immediately displays the magnified forced card) ---
+  // --- Spectator Blind Touch Action (Strictly locks and immediately displays the card) ---
   const handleFaceDownScreenTap = () => {
     if (isLockedBySpectator) return;
     if (soundEnabled) playTickSound();
 
-    // Forced replacement match index
-    const forcedCardIdx = cards.findIndex(
-      c => c.suit === zodiac.forcedCard.suit && c.value === zodiac.forcedCard.value
-    );
+    let chosenIdx = 0;
+    const isFirstTime = !triggeredZodiacIds.has(zodiac.id);
 
-    const chosenIdx = forcedCardIdx !== -1 ? forcedCardIdx : 0;
+    if (isFirstTime) {
+      // First physical face-down click for this zodiac: strictly use the forced card
+      const forcedCardIdx = cards.findIndex(
+        c => c.suit === zodiac.forcedCard.suit && c.value === zodiac.forcedCard.value
+      );
+      chosenIdx = forcedCardIdx !== -1 ? forcedCardIdx : 0;
+      triggeredZodiacIds.add(zodiac.id);
+      logSecret(`【首轮命定】已锁定本命强选牌: ${getSuitName(cards[chosenIdx].suit)}${cards[chosenIdx].value}`);
+    } else {
+      // Subsequent times: completely random card!
+      chosenIdx = Math.floor(Math.random() * cards.length);
+      logSecret(`【次轮随机】已指派随机玄学牌: ${getSuitName(cards[chosenIdx].suit)}${cards[chosenIdx].value}`);
+    }
 
     setHasTriggeredTrick(true);
     setSpectatorSelectedIndex(chosenIdx);
@@ -122,7 +152,6 @@ export default function CardTrickScreen({ gender, zodiac, onBack }: CardTrickScr
     if (card) {
       if (soundEnabled) playChimeSound();
       setSelectedCard(card);
-      logSecret(`命定重现: 契约牌放大揭晓 -> ${getSuitName(card.suit)}${card.value}`);
     }
   };
 
@@ -251,6 +280,8 @@ export default function CardTrickScreen({ gender, zodiac, onBack }: CardTrickScr
           );
         })}
       </div>
+
+
 
       {/* --- LEVEL 2: CLEAN RESULT REVEAL MODAL (No Gold, Deep space theme) --- */}
       <AnimatePresence>
