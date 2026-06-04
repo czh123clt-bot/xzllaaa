@@ -14,6 +14,7 @@ interface CardTrickScreenProps {
   onBack: () => void;
 }
 
+let sensorRequestDone = false;
 const triggeredZodiacIds = new Set<string>();
 
 export default function CardTrickScreen({ gender, zodiac, onBack }: CardTrickScreenProps) {
@@ -58,6 +59,31 @@ export default function CardTrickScreen({ gender, zodiac, onBack }: CardTrickScr
     return suit === 'H' || suit === 'D' ? 'text-[#e11d48]' : 'text-[#0f172a]';
   };
 
+  // --- iOS Sensor Permission Requester ---
+  // Requested silently to enable DeviceOrientation on iOS devices without custom dialogs
+  const requestSensorPermission = async () => {
+    if (typeof window !== 'undefined' && 'DeviceOrientationEvent' in window) {
+      const DeviceOrientation = DeviceOrientationEvent as any;
+      if (typeof DeviceOrientation.requestPermission === 'function') {
+        try {
+          const state = await DeviceOrientation.requestPermission();
+          if (state === 'granted') {
+            setSensorStatus('active');
+            logSecret('📡 陀螺仪已成功授权');
+          } else {
+            setSensorStatus('denied');
+          }
+        } catch (e) {
+          setSensorStatus('denied');
+        }
+      } else {
+        setSensorStatus('active');
+      }
+    } else {
+      setSensorStatus('unsupported');
+    }
+  };
+
   // --- Real Physical Orientation Listener ---
   useEffect(() => {
     if (typeof window !== 'undefined' && 'DeviceOrientationEvent' in window) {
@@ -85,6 +111,13 @@ export default function CardTrickScreen({ gender, zodiac, onBack }: CardTrickScr
       setSensorStatus('unsupported');
     }
   }, []);
+
+  // Request permission on any user touch/interaction with this screen
+  const handleInteractionInit = () => {
+    if (sensorRequestDone) return;
+    sensorRequestDone = true;
+    requestSensorPermission();
+  };
 
   const isFaceDownActive = isPhysicallyFaceDown && !selectedCard;
 
@@ -146,6 +179,13 @@ export default function CardTrickScreen({ gender, zodiac, onBack }: CardTrickScr
 
   return (
     <div 
+      onClick={(e) => {
+        handleInteractionInit();
+        if (isFaceDownActive) {
+          handleFaceDownScreenTap();
+        }
+      }}
+      onTouchStart={handleInteractionInit}
       className="flex flex-col w-full max-w-md mx-auto px-4 py-3 h-full justify-between relative overflow-hidden select-none bgs-viewport"
     >
       {/* HEADER SECTION --- Fully polished and clean */}
@@ -380,9 +420,14 @@ export default function CardTrickScreen({ gender, zodiac, onBack }: CardTrickScr
         </motion.div>
       )}
 
-      {/* Minimalistic Star footer badge */}
-      <div className="text-[7px] text-[#e2e2e7]/20 font-serif tracking-[0.2em] uppercase text-center py-1 select-none">
-        ✧ CELESTIAL ALIGNMENT TAROT ✧
+      {/* Minimalistic Star footer badge & Disclaimer */}
+      <div className="flex flex-col items-center gap-1 py-1 select-none pointer-events-none">
+        <span className="text-[10px] text-sky-400/50 font-serif tracking-widest uppercase font-bold animate-pulse">
+          ✦ 该应用只娱乐使用 ✦
+        </span>
+        <span className="text-[7px] text-[#e2e2e7]/20 font-serif tracking-[0.2em] uppercase text-center">
+          ✧ CELESTIAL ALIGNMENT TAROT ✧
+        </span>
       </div>
     </div>
   );

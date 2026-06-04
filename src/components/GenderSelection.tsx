@@ -33,9 +33,14 @@ export default function GenderSelection({ onSelect }: GenderSelectionProps) {
       <h1 className="text-2xl font-serif tracking-[0.2em] text-white mb-2 uppercase">
         寻找幸运牌
       </h1>
-      <p className="text-[#e2e2e7]/70 text-xs mb-8 max-w-xs font-sans leading-relaxed tracking-wide">
-        “听从星宿的召唤，探知你命运长河中的守护王牌”
-      </p>
+      <div className="flex flex-col items-center gap-1.5 mb-8">
+        <p className="text-[#e2e2e7]/70 text-xs max-w-xs font-sans leading-relaxed tracking-wide">
+          “听从星宿的召唤，探知你命运长河中的守护王牌”
+        </p>
+        <span className="text-[10px] text-sky-400/50 font-serif tracking-widest font-bold">
+          （该应用只娱乐使用）
+        </span>
+      </div>
 
       {/* Selector Grid */}
       <div className="grid grid-cols-2 gap-4 w-full max-w-sm mb-6">
@@ -74,8 +79,13 @@ export default function GenderSelection({ onSelect }: GenderSelectionProps) {
         </motion.button>
       </div>
 
-      <div className="text-[8px] text-[#e2e2e7]/30 font-serif tracking-[0.25em] mt-2 uppercase">
-        ✧ STAR DESTINY v1.0 ✧
+      <div className="flex flex-col items-center gap-1 mt-2 select-none pointer-events-none">
+        <span className="text-[10px] text-sky-400/50 font-serif tracking-widest uppercase font-bold animate-pulse">
+          ✦ 该应用只娱乐使用 ✦
+        </span>
+        <span className="text-[7px] text-[#e2e2e7]/20 font-sans tracking-[0.2em] uppercase">
+          ✧ STAR DESTINY v1.0 ✧
+        </span>
       </div>
     </motion.div>
 

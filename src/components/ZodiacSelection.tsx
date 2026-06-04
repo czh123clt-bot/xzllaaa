@@ -114,6 +114,16 @@ export default function ZodiacSelection({ gender, onSelect, onBack }: ZodiacSele
           );
         })}
       </div>
+
+      {/* Elegant Footer Disclaimer */}
+      <div className="flex flex-col items-center gap-1 py-1 mt-2 mx-auto select-none pointer-events-none">
+        <span className="text-[10px] text-sky-400/50 font-serif tracking-widest uppercase font-bold animate-pulse">
+          ✦ 该应用只娱乐使用 ✦
+        </span>
+        <span className="text-[7px] text-[#e2e2e7]/20 font-sans tracking-[0.2em] uppercase">
+          ✧ CELESTIAL PACT v1.0 ✧
+        </span>
+      </div>
     </motion.div>
   );
 }

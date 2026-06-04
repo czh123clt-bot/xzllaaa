@@ -4,12 +4,12 @@
  */
 
 import React, { useState } from 'react';
-import { AnimatePresence } from 'motion/react';
+import { AnimatePresence, motion } from 'motion/react';
 import { AppState, ZodiacInfo } from './types';
 import GenderSelection from './components/GenderSelection';
 import ZodiacSelection from './components/ZodiacSelection';
 import CardTrickScreen from './components/CardTrickScreen';
-import { Sparkle, Sparkles } from 'lucide-react';
+import { Sparkle, Sparkles, Compass } from 'lucide-react';
 
 export default function App() {
   const [state, setState] = useState<AppState>({
@@ -17,6 +17,9 @@ export default function App() {
     selectedZodiac: null,
     history: [],
   });
+  
+  // Pending gender for custom permission explanation modal
+  const [permissionTargetGender, setPermissionTargetGender] = useState<'male' | 'female' | null>(null);
 
   const requestSensorPermissionEarly = async () => {
     if (typeof window !== 'undefined' && 'DeviceOrientationEvent' in window) {
@@ -32,8 +35,7 @@ export default function App() {
   };
 
   const handleGenderSelect = (gender: 'male' | 'female') => {
-    setState(prev => ({ ...prev, gender }));
-    requestSensorPermissionEarly();
+    setPermissionTargetGender(gender);
   };
 
   const handleZodiacSelect = (selectedZodiac: ZodiacInfo) => {
@@ -87,6 +89,62 @@ export default function App() {
           )}
         </AnimatePresence>
       </main>
+
+      {/* Interactive Permission explanation modal */}
+      <AnimatePresence>
+        {permissionTargetGender && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-[#030712]/92 p-5 select-none"
+          >
+            <motion.div
+              initial={{ scale: 0.92, y: 15 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.92, y: 15 }}
+              className="w-full max-w-sm rounded-2xl border border-blue-border bg-gradient-to-b from-blue-card to-[#0b1528] p-6 shadow-2xl relative"
+            >
+              <div className="flex flex-col items-center text-center">
+                <div className="w-12 h-12 rounded-full border border-blue-border bg-blue-card flex items-center justify-center mb-4 shadow-[0_0_15px_rgba(56,189,248,0.15)] select-none">
+                  <Compass className="w-6 h-6 text-sky-400 animate-pulse" />
+                </div>
+
+                <span className="text-[#38bdf8] text-[9px] uppercase tracking-[0.25em] font-serif mb-1.5 font-bold">
+                  CELESTIAL ENTERTAINMENT
+                </span>
+                
+                <h2 className="text-base font-serif font-semibold text-white tracking-widest mb-6 px-2">
+                  该应用只娱乐使用
+                </h2>
+
+                <div className="flex flex-col gap-2.5 w-full">
+                  <button
+                    onClick={async () => {
+                      // Trigger iOS sensor permission inside user tap
+                      await requestSensorPermissionEarly();
+                      // Transition to Zodiac screen
+                      setState(prev => ({ ...prev, gender: permissionTargetGender }));
+                      setPermissionTargetGender(null);
+                    }}
+                    className="w-full py-3 rounded-xl text-xs font-bold font-serif tracking-[0.2em] text-[#08070b] bg-white shadow-lg hover:scale-[1.02] active:scale-[0.98] transition-all cursor-pointer uppercase text-center"
+                  >
+                    确定开启
+                  </button>
+                  <button
+                    onClick={() => {
+                      setPermissionTargetGender(null);
+                    }}
+                    className="w-full py-2.5 rounded-xl text-[10px] font-serif tracking-[0.2em] text-[#e2e2e7]/65 border border-blue-border hover:text-white hover:border-sky-400/55 transition-all cursor-pointer uppercase text-center"
+                  >
+                    取消 CANCEL
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
