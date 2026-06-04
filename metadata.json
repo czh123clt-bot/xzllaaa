@@ -1,0 +1,6 @@
+{
+  "name": "寻找幸运牌",
+  "description": "一款专为手机端设计的12星座幸运牌魔法互动网站，结合星座、心理学与魔术设计，支持手机重力传感器翻转识破和魔术模拟器控制。",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
