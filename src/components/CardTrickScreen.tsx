@@ -25,8 +25,6 @@ export default function CardTrickScreen({ gender, zodiac, onBack }: CardTrickScr
 
   // --- Face-down / Sensor State ---
   const [isPhysicallyFaceDown, setIsPhysicallyFaceDown] = useState<boolean>(false);
-  // Hidden support for desktop testing: click the constellation title to simulate flip
-  const [isSimulatedFaceDown, setIsSimulatedFaceDown] = useState<boolean>(false);
   
   const [sensorStatus, setSensorStatus] = useState<'unsupported' | 'checking' | 'active' | 'denied'>('checking');
   const [isLockedBySpectator, setIsLockedBySpectator] = useState<boolean>(false);
@@ -101,7 +99,7 @@ export default function CardTrickScreen({ gender, zodiac, onBack }: CardTrickScr
     requestSensorPermission();
   };
 
-  const isFaceDownActive = (isPhysicallyFaceDown || isSimulatedFaceDown) && !selectedCard;
+  const isFaceDownActive = isPhysicallyFaceDown && !selectedCard;
 
   // --- Spectator Blind Touch Action (Strictly locks and immediately displays the magnified forced card) ---
   const handleFaceDownScreenTap = () => {
@@ -126,9 +124,6 @@ export default function CardTrickScreen({ gender, zodiac, onBack }: CardTrickScr
       setSelectedCard(card);
       logSecret(`命定重现: 契约牌放大揭晓 -> ${getSuitName(card.suit)}${card.value}`);
     }
-
-    // Deactive simulated mode
-    setIsSimulatedFaceDown(false);
   };
 
   // Monitor physical alignment
@@ -381,17 +376,8 @@ export default function CardTrickScreen({ gender, zodiac, onBack }: CardTrickScr
         </motion.div>
       )}
 
-      {/* Minimalistic Star footer badge with fallback simulation trigger (no text prompt) */}
-      <div 
-        onClick={() => {
-          setIsSimulatedFaceDown(!isSimulatedFaceDown);
-          if (!isSimulatedFaceDown) {
-            setIsLockedBySpectator(false);
-            setSpectatorSelectedIndex(null);
-          }
-        }}
-        className="text-[7px] text-[#e2e2e7]/20 font-serif tracking-[0.2em] uppercase text-center py-1 select-none cursor-pointer hover:text-sky-400/40 transition-colors"
-      >
+      {/* Minimalistic Star footer badge */}
+      <div className="text-[7px] text-[#e2e2e7]/20 font-serif tracking-[0.2em] uppercase text-center py-1 select-none">
         ✧ CELESTIAL ALIGNMENT TAROT ✧
       </div>
     </div>
