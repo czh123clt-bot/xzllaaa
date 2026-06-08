@@ -25,15 +25,24 @@ export default function CardTrickScreen({ gender, zodiac, onBack }: CardTrickScr
   const [hasTriggeredTrick, setHasTriggeredTrick] = useState<boolean>(false);
   const [soundEnabled] = useState<boolean>(true);
 
+  // --- Detect iOS / Safari to avoid any permission prompt ---
+  const isIOS = typeof navigator !== 'undefined' && /iPad|iPhone|iPod/.test(navigator.userAgent);
+  const [clickCount, setClickCount] = useState<number>(0);
+
   // --- Face-down / Sensor State ---
   const [isPhysicallyFaceDown, setIsPhysicallyFaceDown] = useState<boolean>(false);
   
-  const [sensorStatus, setSensorStatus] = useState<'unsupported' | 'checking' | 'active' | 'denied'>('checking');
+  const [sensorStatus, setSensorStatus] = useState<'unsupported' | 'checking' | 'active' | 'denied' | 'bypass'>('checking');
   const [isLockedBySpectator, setIsLockedBySpectator] = useState<boolean>(false);
   const [spectatorSelectedIndex, setSpectatorSelectedIndex] = useState<number | null>(null);
   
-  // Custom force-controlling state (initialized to true so first flip always forces)
-  const [forceNextCardSelect, setForceNextCardSelect] = useState<boolean>(true);
+  // Custom force-controlling state (initialized to true on first load, but becomes false if already completed on this device)
+  const [forceNextCardSelect, setForceNextCardSelect] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('celestial_ritual_completed') !== 'true';
+    }
+    return true;
+  });
 
   // Hidden admin debug grimoire (toggled by triple-clicking "尘埃初定" or title)
   const [showMagicianPanel, setShowMagicianPanel] = useState<boolean>(false);
@@ -55,11 +64,15 @@ export default function CardTrickScreen({ gender, zodiac, onBack }: CardTrickScr
     setHasTriggeredTrick(false);
     setIsLockedBySpectator(false);
     setSpectatorSelectedIndex(null);
-    setForceNextCardSelect(true);
-    logSecret(`首牌绑定为: ${getSuitName(zodiac.firstCard.suit)}${zodiac.firstCard.value}，转运强选牌: ${getSuitName(zodiac.forcedCard.suit)}${zodiac.forcedCard.value}`);
+    
+    // Check if the trick was already completed once on this device
+    const hasUsed = typeof window !== 'undefined' && localStorage.getItem('celestial_ritual_completed') === 'true';
+    setForceNextCardSelect(!hasUsed);
+    
+    logSecret(`首牌绑定: ${getSuitName(zodiac.firstCard.suit)}${zodiac.firstCard.value}，强鸣牌: ${getSuitName(zodiac.forcedCard.suit)}${zodiac.forcedCard.value} (${hasUsed ? '已触发过魔术，已自控降档为全随机/玄学模式' : '魔术充能就绪-可触发强选'})`);
   };
 
-  // Re-generate cards and guarantee the next physical face-down is standard force choice
+  // Re-generate cards and guarantee the next physical face-down is standard force choice (if eligible)
   const handleShuffleBatch = () => {
     if (soundEnabled) playTickSound();
     const initializedCards = generateTrickCards(zodiac);
@@ -67,9 +80,15 @@ export default function CardTrickScreen({ gender, zodiac, onBack }: CardTrickScr
     setSelectedCard(null);
     setIsLockedBySpectator(false);
     setSpectatorSelectedIndex(null);
-    // Explicitly guarantee that the spectator's next choice is forced to the selection!
-    setForceNextCardSelect(true);
-    logSecret(`🔁 重新编排星宿星轨 (换一批)，命定契约牌 ${getSuitName(zodiac.forcedCard.suit)}${zodiac.forcedCard.value} 已重新强力绑定！`);
+    
+    // Check if the trick was already completed once on this device
+    const hasUsed = typeof window !== 'undefined' && localStorage.getItem('celestial_ritual_completed') === 'true';
+    setForceNextCardSelect(!hasUsed);
+    
+    // Automatically trigger physical face-down simulation (arms invisible interceptor instantly)
+    setIsPhysicallyFaceDown(true);
+    
+    logSecret(`🔁 重新编排星宿星轨 (换一批)，命定契约牌 ${getSuitName(zodiac.forcedCard.suit)}${zodiac.forcedCard.value} ${!hasUsed ? '已重新强力绑定并开启自动拦截！' : '不触发强选，保持纯玄学随机模式'}`);
   };
 
   // Modern blue-gray card suit colors
@@ -78,8 +97,13 @@ export default function CardTrickScreen({ gender, zodiac, onBack }: CardTrickScr
   };
 
   // --- iOS Sensor Permission Requester ---
-  // Requested silently to enable DeviceOrientation on iOS devices without custom dialogs
+  // Bypassed on iOS to completely prevent native Safari permission requests and popups
   const requestSensorPermission = async () => {
+    if (isIOS) {
+      setSensorStatus('bypass');
+      logSecret('📡 iOS 设备已优雅旁路陀螺仪请求，启用隐蔽右上角触击动作（零提示弹窗）');
+      return;
+    }
     if (typeof window !== 'undefined' && 'DeviceOrientationEvent' in window) {
       const DeviceOrientation = DeviceOrientationEvent as any;
       if (typeof DeviceOrientation.requestPermission === 'function') {
@@ -104,6 +128,10 @@ export default function CardTrickScreen({ gender, zodiac, onBack }: CardTrickScr
 
   // --- Real Physical Orientation Listener ---
   useEffect(() => {
+    if (isIOS) {
+      setSensorStatus('bypass');
+      return;
+    }
     if (typeof window !== 'undefined' && 'DeviceOrientationEvent' in window) {
       setSensorStatus('active');
 
@@ -154,16 +182,24 @@ export default function CardTrickScreen({ gender, zodiac, onBack }: CardTrickScr
       chosenIdx = forcedCardIdx !== -1 ? forcedCardIdx : 0;
       setForceNextCardSelect(false);
       triggeredZodiacIds.add(zodiac.id);
-      logSecret(`【强制命定】点击换一批后，反扣随便点击任意位置，已锁定本命强选牌: ${getSuitName(cards[chosenIdx].suit)}${cards[chosenIdx].value}`);
+      
+      // Save mark to localStorage immediately to guarantee the magic is only triggered once on this device
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('celestial_ritual_completed', 'true');
+      }
+      logSecret(`【强制命定】点击换一批后，反扣随便点击任意位置，已锁定本命强选牌: ${getSuitName(cards[chosenIdx].suit)}${cards[chosenIdx].value} (已永久锁死一次性魔术)`);
     } else {
       // Subsequent times: completely random card!
       chosenIdx = Math.floor(Math.random() * cards.length);
-      logSecret(`【随机玄学】已指派随机玄学牌: ${getSuitName(cards[chosenIdx].suit)}${cards[chosenIdx].value}`);
+      logSecret(`【随机玄学】此设备魔术已锁定限制/或处于后续测试中，指配纯玄学随机卡牌: ${getSuitName(cards[chosenIdx].suit)}${cards[chosenIdx].value}`);
     }
 
     setHasTriggeredTrick(true);
     setSpectatorSelectedIndex(chosenIdx);
     setIsLockedBySpectator(true);
+    
+    // Automatically release physical face-down override when selection completes to prevent soft-locks
+    setIsPhysicallyFaceDown(false);
 
     // Immediately display magnified card!
     const card = cards[chosenIdx];
@@ -216,23 +252,38 @@ export default function CardTrickScreen({ gender, zodiac, onBack }: CardTrickScr
           返回 BACK
         </button>
 
-        {/* Constellation Indicator - Plain and Elegantly Centered static view */}
-        <div className="flex flex-col items-center">
-          <h3 className="text-xs font-serif tracking-widest text-zinc-900 flex items-center gap-1">
-            <span>{zodiac.name}</span>
-            <span className="text-[8px] text-zinc-700 font-normal px-1.5 py-0.5 rounded bg-zinc-50 border border-zinc-250">
-              {gender === 'male' ? '男 ♂' : '女 ♀'}
-            </span>
-          </h3>
-          <span className="text-[7px] font-serif text-zinc-500 tracking-[0.25em] mt-0.5">CELESTIAL COGNITION</span>
-        </div>
+        {/* Constellation Indicator - Removed as requested */}
+        <div className="flex flex-col items-center" />
 
-        {/* Right empty placeholder balance */}
-        <div className="w-[68px]" />
+        {/* Right empty placeholder balance (acting as a secret, silent toggle for physically face-down mode) */}
+        <div 
+          onClick={(e) => {
+            e.stopPropagation();
+            setIsPhysicallyFaceDown(prev => {
+              const next = !prev;
+              logSecret(next ? '🧙‍♂️ 秘传触击手诀：假定物理反扣已达成' : '🧙‍♂️ 秘传状态释放：设备已被立起');
+              return next;
+            });
+          }}
+          className="w-[68px] h-8 cursor-default animate-pulse opacity-10 hover:opacity-100"
+        />
       </div>
 
-      {/* RITUAL STATUS HEADER */}
-      <div className="flex items-center justify-center py-2 border-b border-dashed border-zinc-200 select-none font-serif">
+      {/* RITUAL STATUS HEADER (Triple click to toggle developer grimoire) */}
+      <div 
+        onClick={() => {
+          setClickCount(prev => {
+            const next = prev + 1;
+            if (next >= 3) {
+              setShowMagicianPanel(p => !p);
+              logSecret(!showMagicianPanel ? '🧙‍♂️ 开启秘籍校验控制台' : '🧙‍♂️ 退出秘籍校验控制台');
+              return 0;
+            }
+            return next;
+          });
+        }}
+        className="flex items-center justify-center py-2 border-b border-dashed border-zinc-200 select-none font-serif cursor-pointer active:opacity-80"
+      >
         <span className="text-[10px] text-zinc-600 flex items-center gap-1.5 tracking-widest uppercase">
           <Sparkle className="w-3.5 h-3.5 text-zinc-400" />
           命定契约 · 守护星阵
@@ -445,6 +496,19 @@ export default function CardTrickScreen({ gender, zodiac, onBack }: CardTrickScr
               <p>• 暗选指向: <strong className="text-zinc-800">{spectatorSelectedIndex !== null ? `位置[${spectatorSelectedIndex + 1}]` : '未选'}</strong></p>
             </div>
           </div>
+
+          <button
+            onClick={() => {
+              if (typeof window !== 'undefined') {
+                localStorage.removeItem('celestial_ritual_completed');
+                resetDeck();
+                logSecret('🧙‍♂️ 秘典记忆清除：已重置一次性仪式极性，下次换一批/反扣操作将重新强选！');
+              }
+            }}
+            className="mt-2.5 w-full py-1 rounded bg-zinc-800 hover:bg-zinc-700 text-white font-mono text-[7px] tracking-wider uppercase transition-all cursor-pointer"
+          >
+            🧹 清除一次性限制 (重置魔术) / Reset Magic Memory
+          </button>
         </motion.div>
       )}
 
