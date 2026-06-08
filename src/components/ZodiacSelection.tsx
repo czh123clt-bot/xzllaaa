@@ -35,9 +35,9 @@ function getZodiacIcon(key: string, className: string) {
 export default function ZodiacSelection({ gender, onSelect, onBack }: ZodiacSelectionProps) {
   return (
     <motion.div
-      initial={{ opacity: 0, scale: 0.95 }}
+      initial={{ opacity: 0, scale: 0.98 }}
       animate={{ opacity: 1, scale: 1 }}
-      exit={{ opacity: 0, scale: 0.95 }}
+      exit={{ opacity: 0, scale: 0.98 }}
       transition={{ duration: 0.4 }}
       className="flex flex-col w-full max-w-xl mx-auto px-4 py-3 h-full justify-between overflow-hidden select-none"
     >
@@ -45,28 +45,28 @@ export default function ZodiacSelection({ gender, onSelect, onBack }: ZodiacSele
       <div className="flex items-center justify-between mb-4 select-none">
         <button
           onClick={onBack}
-          className="flex items-center gap-1 px-2.5 py-1 rounded-lg border border-blue-border bg-blue-card text-[#e2e2e7]/80 text-[10px] font-serif tracking-widest hover:text-white hover:border-sky-400 transition-all cursor-pointer"
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-zinc-200 bg-white text-zinc-700 text-[10px] font-serif tracking-widest hover:text-black hover:border-zinc-800 transition-all cursor-pointer shadow-sm"
         >
-          <ArrowLeft className="w-3.5 h-3.5 text-sky-400" />
+          <ArrowLeft className="w-3.5 h-3.5 text-zinc-500" />
           返回 BACK
         </button>
 
         {/* Gender Badge */}
-        <div className="flex items-center gap-1.5 px-3 py-1 rounded-full border border-blue-border bg-blue-card shadow-[0_0_15px_rgba(0,0,0,0.3)]">
-          <span className={`text-[10px] font-serif tracking-wider ${gender === 'male' ? 'text-sky-400' : 'text-pink-400'}`}>
+        <div className="flex items-center gap-1.5 px-3 py-1 rounded-full border border-zinc-200 bg-white shadow-sm">
+          <span className="text-[10px] font-serif tracking-wider text-zinc-700">
             {gender === 'male' ? '♂ 男士 GENTLEMAN' : '♀ 女士 LADY'}
           </span>
-          <span className="w-1.5 h-1.5 rounded-full bg-sky-300 animate-pulse" />
+          <span className="w-1 h-1 rounded-full bg-zinc-300" />
         </div>
       </div>
 
       {/* Main Title */}
-      <div className="text-center mb-3.5 select-none">
-        <h2 className="text-lg font-serif text-white tracking-[0.1em] flex items-center justify-center gap-1.5 uppercase">
+      <div className="text-center mb-4 select-none">
+        <h2 className="text-xl font-serif text-zinc-950 tracking-[0.1em] flex items-center justify-center gap-2 uppercase">
           选择本命星象
-          <Sparkle className="w-4.5 h-4.5 text-sky-300 animate-pulse" />
+          <Sparkle className="w-4 h-4 text-zinc-500" />
         </h2>
-        <p className="text-[#e2e2e7]/60 text-[10px] mt-1 border-b border-dashed border-blue-border/40 pb-2 max-w-xs mx-auto">
+        <p className="text-zinc-500 font-serif text-[10px] mt-1.5 border-b border-dashed border-zinc-200 pb-2.5 max-w-xs mx-auto">
           听从十二星宿之音，铺展专属命运格谱
         </p>
       </div>
@@ -80,33 +80,30 @@ export default function ZodiacSelection({ gender, onSelect, onBack }: ZodiacSele
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: index * 0.02, duration: 0.3 }}
-              whileHover={{ scale: 1.02 }}
+              whileHover={{ scale: 1.02, borderColor: '#18181b' }}
               whileTap={{ scale: 0.98 }}
               onClick={() => onSelect(zodiac)}
-              className="relative group overflow-hidden flex flex-col justify-between p-2.5 rounded-lg border border-blue-border bg-gradient-to-b from-blue-card to-deep-blue/40 hover:border-sky-400/40 shadow text-left transition-colors cursor-pointer"
+              className="relative group overflow-hidden flex flex-col justify-between p-3 rounded-lg border border-zinc-200 bg-white hover:bg-zinc-50/50 shadow-sm text-left transition-all cursor-pointer"
             >
-              {/* Colored Glow effect on hover */}
-              <div className={`absolute top-0 right-0 w-16 h-16 bg-gradient-to-br ${zodiac.color} blur-xl opacity-5 group-hover:opacity-15 transition-opacity duration-300 rounded-full`} />
-
               {/* Corner Design Trim */}
-              <div className="absolute top-1.5 right-2 text-[7px] font-serif tracking-widest text-[#e2e2e7]/30 select-none">
+              <div className="absolute top-1.5 right-2 text-[7px] font-serif tracking-widest text-zinc-400 select-none">
                 {zodiac.english.toUpperCase().slice(0, 3)}
               </div>
 
               {/* Icon Container */}
-              <div className="mb-2 text-sky-300 bg-sky-500/10 w-7 h-7 rounded-md flex items-center justify-center border border-sky-450/10 group-hover:bg-sky-400/20 group-hover:text-white group-hover:scale-105 transition-all">
+              <div className="mb-2.5 text-zinc-600 bg-zinc-50 w-7 h-7 rounded-md flex items-center justify-center border border-zinc-200 group-hover:bg-zinc-950 group-hover:text-white transition-all">
                 {getZodiacIcon(zodiac.icon, "w-3.5 h-3.5")}
               </div>
 
               {/* Name Details */}
               <div className="flex flex-col select-none leading-tight">
-                <span className="text-xs font-serif font-bold tracking-widest text-[#e2e2e7] group-hover:text-sky-300 transition-colors">
+                <span className="text-xs font-serif font-bold tracking-widest text-zinc-800 group-hover:text-black transition-colors">
                   {zodiac.name}
                 </span>
-                <span className="text-[8px] font-serif uppercase text-[#e2e2e7]/40 tracking-wider mt-0.5">
+                <span className="text-[8px] font-serif uppercase text-zinc-400 tracking-wider mt-0.5">
                   {zodiac.english}
                 </span>
-                <span className="text-[8px] font-mono text-slate-500 mt-1">
+                <span className="text-[8px] font-mono text-zinc-500 mt-1">
                   {zodiac.date}
                 </span>
               </div>
@@ -115,14 +112,9 @@ export default function ZodiacSelection({ gender, onSelect, onBack }: ZodiacSele
         })}
       </div>
 
-      {/* Elegant Footer Disclaimer */}
+      {/* Elegant Footer Disclaimer removed as requested */}
       <div className="flex flex-col items-center gap-1 py-1 mt-2 mx-auto select-none pointer-events-none">
-        <span className="text-[10px] text-sky-400/50 font-serif tracking-widest uppercase font-bold animate-pulse">
-          ✦ 该应用只娱乐使用 ✦
-        </span>
-        <span className="text-[7px] text-[#e2e2e7]/20 font-sans tracking-[0.2em] uppercase">
-          ✧ CELESTIAL PACT v1.0 ✧
-        </span>
+        {/* Disclaimers removed */}
       </div>
     </motion.div>
   );

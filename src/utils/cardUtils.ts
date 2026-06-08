@@ -29,10 +29,14 @@ export function getSuitColor(suit: Suit): string {
 export function generateTrickCards(zodiac: ZodiacInfo): Card[] {
   const result: Card[] = [];
 
-  // 1. Create the fixed first card
+  // Randomize first card's suit
+  const SUITS: Suit[] = ['S', 'H', 'C', 'D'];
+  const randomFirstSuit = SUITS[Math.floor(Math.random() * 4)];
+
+  // 1. Create the first card with randomized suit and original value
   const firstCard: Card = {
     id: `first-${zodiac.id}`,
-    suit: zodiac.firstCard.suit,
+    suit: randomFirstSuit,
     value: zodiac.firstCard.value,
     isFaceUp: false,
   };
@@ -45,23 +49,56 @@ export function generateTrickCards(zodiac: ZodiacInfo): Card[] {
     isFaceUp: false,
   };
 
-  // 3. Generate a pool of other 50 cards
-  const pool: { suit: Suit; value: string }[] = [];
+  const firstCardColor = (firstCard.suit === 'H' || firstCard.suit === 'D') ? 'red' : 'black';
+  const forcedCardColor = (forcedCard.suit === 'H' || forcedCard.suit === 'D') ? 'red' : 'black';
+
+  // We want the total of red cards in the 9 cards to be either 4 or 5.
+  const targetRedCount = Math.random() < 0.5 ? 4 : 5;
+  
+  // Calculate existing red cards among first and forced cards
+  let existingRedCount = 0;
+  if (firstCardColor === 'red') existingRedCount++;
+  if (forcedCardColor === 'red') existingRedCount++;
+
+  const neededRed = targetRedCount - existingRedCount;
+  const neededBlack = 7 - neededRed;
+
+  // Now build separate pools of red and black cards
+  const redPool: { suit: Suit; value: string }[] = [];
+  const blackPool: { suit: Suit; value: string }[] = [];
+
+  const VALUES = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
+
   for (const s of SUITS) {
+    const isRed = s === 'H' || s === 'D';
     for (const v of VALUES) {
-      const isFirst = s === zodiac.firstCard.suit && v === zodiac.firstCard.value;
-      const isForced = s === zodiac.forcedCard.suit && v === zodiac.forcedCard.value;
+      // Exclude firstCard and forcedCard to avoid duplicates
+      const isFirst = s === firstCard.suit && v === firstCard.value;
+      const isForced = s === forcedCard.suit && v === forcedCard.value;
       if (!isFirst && !isForced) {
-        pool.push({ suit: s, value: v });
+        if (isRed) {
+          redPool.push({ suit: s, value: v });
+        } else {
+          blackPool.push({ suit: s, value: v });
+        }
       }
     }
   }
 
-  // Shuffle the pool
-  const shuffledPool = [...pool].sort(() => Math.random() - 0.5);
+  // Shuffle pools
+  const shuffledRed = [...redPool].sort(() => Math.random() - 0.5);
+  const shuffledBlack = [...blackPool].sort(() => Math.random() - 0.5);
 
-  // Take 7 random cards from the pool
-  const random7 = shuffledPool.slice(0, 7).map((c, i) => ({
+  // Take the required amount
+  const selectedRed = shuffledRed.slice(0, neededRed);
+  const selectedBlack = shuffledBlack.slice(0, neededBlack);
+
+  // Combine and map to Card objects
+  const random7Pool = [...selectedRed, ...selectedBlack];
+  // Shuffle them so they don't appear grouped by color
+  const shuffledRandom7Pool = random7Pool.sort(() => Math.random() - 0.5);
+
+  const random7 = shuffledRandom7Pool.map((c, i) => ({
     id: `random-${i}-${zodiac.id}`,
     suit: c.suit,
     value: c.value,
