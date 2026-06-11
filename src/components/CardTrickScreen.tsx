@@ -31,6 +31,7 @@ export default function CardTrickScreen({ gender, zodiac, onBack }: CardTrickScr
 
   // --- Face-down / Sensor State ---
   const [isPhysicallyFaceDown, setIsPhysicallyFaceDown] = useState<boolean>(false);
+  const [isInterceptorArmed, setIsInterceptorArmed] = useState<boolean>(false);
   
   const [sensorStatus, setSensorStatus] = useState<'unsupported' | 'checking' | 'active' | 'denied' | 'bypass'>('checking');
   const [isLockedBySpectator, setIsLockedBySpectator] = useState<boolean>(false);
@@ -64,6 +65,7 @@ export default function CardTrickScreen({ gender, zodiac, onBack }: CardTrickScr
     setHasTriggeredTrick(false);
     setIsLockedBySpectator(false);
     setSpectatorSelectedIndex(null);
+    setIsInterceptorArmed(false);
     
     // Check if the trick was already completed once on this device
     const hasUsed = typeof window !== 'undefined' && localStorage.getItem('celestial_ritual_completed') === 'true';
@@ -85,10 +87,10 @@ export default function CardTrickScreen({ gender, zodiac, onBack }: CardTrickScr
     const hasUsed = typeof window !== 'undefined' && localStorage.getItem('celestial_ritual_completed') === 'true';
     setForceNextCardSelect(!hasUsed);
     
-    // Automatically trigger physical face-down simulation (arms invisible interceptor instantly)
-    setIsPhysicallyFaceDown(true);
+    // Silently arm the background interceptor upon first click, keeping it armed across multiple shuffles
+    setIsInterceptorArmed(true);
     
-    logSecret(`🔁 重新编排星宿星轨 (换一批)，命定契约牌 ${getSuitName(zodiac.forcedCard.suit)}${zodiac.forcedCard.value} ${!hasUsed ? '已重新强力绑定并开启自动拦截！' : '不触发强选，保持纯玄学随机模式'}`);
+    logSecret(`🔁 重新编排星宿星轨 (换一批)，命定契约牌 ${getSuitName(zodiac.forcedCard.suit)}${zodiac.forcedCard.value} ${!hasUsed ? '『反扣拦截器』已静默唤醒！无论后面再按多少次换一批，旦手机反扣点击即中强选。' : '不触发强选，保持纯玄学随机模式'}`);
   };
 
   // Modern blue-gray card suit colors
@@ -97,13 +99,7 @@ export default function CardTrickScreen({ gender, zodiac, onBack }: CardTrickScr
   };
 
   // --- iOS Sensor Permission Requester ---
-  // Bypassed on iOS to completely prevent native Safari permission requests and popups
   const requestSensorPermission = async () => {
-    if (isIOS) {
-      setSensorStatus('bypass');
-      logSecret('📡 iOS 设备已优雅旁路陀螺仪请求，启用隐蔽右上角触击动作（零提示弹窗）');
-      return;
-    }
     if (typeof window !== 'undefined' && 'DeviceOrientationEvent' in window) {
       const DeviceOrientation = DeviceOrientationEvent as any;
       if (typeof DeviceOrientation.requestPermission === 'function') {
@@ -113,10 +109,12 @@ export default function CardTrickScreen({ gender, zodiac, onBack }: CardTrickScr
             setSensorStatus('active');
             logSecret('📡 陀螺仪已成功授权');
           } else {
-            setSensorStatus('denied');
+            setSensorStatus('bypass');
+            logSecret('📡 陀螺仪未授权，已降级至触控后台静默拦截模式（零弹窗）');
           }
         } catch (e) {
-          setSensorStatus('denied');
+          setSensorStatus('bypass');
+          logSecret('📡 陀螺仪未就绪，已降级至触控后台静默拦截模式（零弹窗）');
         }
       } else {
         setSensorStatus('active');
@@ -128,10 +126,6 @@ export default function CardTrickScreen({ gender, zodiac, onBack }: CardTrickScr
 
   // --- Real Physical Orientation Listener ---
   useEffect(() => {
-    if (isIOS) {
-      setSensorStatus('bypass');
-      return;
-    }
     if (typeof window !== 'undefined' && 'DeviceOrientationEvent' in window) {
       setSensorStatus('active');
 
@@ -165,7 +159,7 @@ export default function CardTrickScreen({ gender, zodiac, onBack }: CardTrickScr
     requestSensorPermission();
   };
 
-  const isFaceDownActive = isPhysicallyFaceDown && !selectedCard;
+  const isFaceDownActive = isPhysicallyFaceDown && isInterceptorArmed && !selectedCard;
 
   // --- Spectator Blind Touch Action (Strictly locks and immediately displays the card) ---
   const handleFaceDownScreenTap = () => {
@@ -200,6 +194,7 @@ export default function CardTrickScreen({ gender, zodiac, onBack }: CardTrickScr
     
     // Automatically release physical face-down override when selection completes to prevent soft-locks
     setIsPhysicallyFaceDown(false);
+    setIsInterceptorArmed(false);
 
     // Immediately display magnified card!
     const card = cards[chosenIdx];
@@ -235,11 +230,16 @@ export default function CardTrickScreen({ gender, zodiac, onBack }: CardTrickScr
     <div 
       onClick={(e) => {
         handleInteractionInit();
+        // If the real physical face-down is active OR if the interceptor is armed, tapping empty areas triggers selection!
         if (isFaceDownActive) {
+          handleFaceDownScreenTap();
+        } else if (isInterceptorArmed && !selectedCard) {
           handleFaceDownScreenTap();
         }
       }}
-      onTouchStart={handleInteractionInit}
+      onTouchStart={(e) => {
+        handleInteractionInit();
+      }}
       className="flex flex-col w-full max-w-md mx-auto px-4 py-3 h-full justify-between relative overflow-hidden select-none bgs-viewport"
     >
       {/* HEADER SECTION --- Fully polished and clean light layout */}
@@ -291,7 +291,15 @@ export default function CardTrickScreen({ gender, zodiac, onBack }: CardTrickScr
       </div>
 
       {/* 3x3 CARDS MATRIX - ELEGANT ALABASTER / SILVER DESIGN */}
-      <div className="relative flex-1 my-3 bg-zinc-50/60 p-3.5 border border-zinc-200 rounded-xl shadow-md grid grid-cols-3 gap-2.5 items-center justify-items-center select-none w-full max-w-sm mx-auto overflow-hidden">
+      <div 
+        onClick={(e) => {
+          // If they click on the grid but NOT on an individual card button, trigger the tap selection!
+          if (e.target === e.currentTarget && isInterceptorArmed && !selectedCard) {
+            handleFaceDownScreenTap();
+          }
+        }}
+        className="relative flex-1 my-3 bg-zinc-50/60 p-3.5 border border-zinc-200 rounded-xl shadow-md grid grid-cols-3 gap-2.5 items-center justify-items-center select-none w-full max-w-sm mx-auto overflow-hidden"
+      >
         
         {/* Sky constellations subtle blueprint */}
         <div className="absolute inset-0 opacity-[0.035] flex items-center justify-center pointer-events-none select-none">
@@ -490,11 +498,40 @@ export default function CardTrickScreen({ gender, zodiac, onBack }: CardTrickScr
             <div>
               <p>• 宿命指定牌: <strong className="text-zinc-800">{getSuitName(zodiac.forcedCard.suit)}{zodiac.forcedCard.value}</strong></p>
               <p>• 陀螺仪授权: <strong className="text-zinc-800 uppercase">{sensorStatus}</strong></p>
+              <p>• 拦截器唤醒: <strong className={isInterceptorArmed ? "text-emerald-600 font-semibold" : "text-amber-600 font-semibold"}>{isInterceptorArmed ? '已就绪 (ARMED)' : '未就绪 (OFF)'}</strong></p>
             </div>
             <div>
               <p>• 物理反扣: <strong className="text-zinc-800">{isPhysicallyFaceDown ? '已朝下' : '朝上'}</strong></p>
               <p>• 暗选指向: <strong className="text-zinc-800">{spectatorSelectedIndex !== null ? `位置[${spectatorSelectedIndex + 1}]` : '未选'}</strong></p>
             </div>
+          </div>
+
+          <div className="flex gap-2 mt-2.5">
+            <button
+              onClick={() => {
+                setIsInterceptorArmed(prev => {
+                  const next = !prev;
+                  logSecret(`🧙‍♂️ 秘传控制：手动${next ? '激活' : '释放'}拦截器就绪状态`);
+                  return next;
+                });
+              }}
+              className="flex-1 py-1 rounded bg-zinc-200 hover:bg-zinc-300 text-zinc-800 font-mono text-[7px] tracking-wider uppercase transition-all cursor-pointer text-center"
+            >
+              🔑 切换准备 {isInterceptorArmed ? 'OFF' : 'ON'}
+            </button>
+
+            <button
+              onClick={() => {
+                setIsPhysicallyFaceDown(prev => {
+                  const next = !prev;
+                  logSecret(`🧙‍♂️ 秘传控制：手动${next ? '伪装反扣' : '立起手机'}`);
+                  return next;
+                });
+              }}
+              className="flex-1 py-1 rounded bg-zinc-200 hover:bg-zinc-300 text-zinc-800 font-mono text-[7px] tracking-wider uppercase transition-all cursor-pointer text-center"
+            >
+              ⚙️ 切换反扣 {isPhysicallyFaceDown ? 'UP' : 'DOWN'}
+            </button>
           </div>
 
           <button
@@ -505,7 +542,7 @@ export default function CardTrickScreen({ gender, zodiac, onBack }: CardTrickScr
                 logSecret('🧙‍♂️ 秘典记忆清除：已重置一次性仪式极性，下次换一批/反扣操作将重新强选！');
               }
             }}
-            className="mt-2.5 w-full py-1 rounded bg-zinc-800 hover:bg-zinc-700 text-white font-mono text-[7px] tracking-wider uppercase transition-all cursor-pointer"
+            className="mt-2 w-full py-1 rounded bg-zinc-800 hover:bg-zinc-700 text-white font-mono text-[7px] tracking-wider uppercase transition-all cursor-pointer"
           >
             🧹 清除一次性限制 (重置魔术) / Reset Magic Memory
           </button>
