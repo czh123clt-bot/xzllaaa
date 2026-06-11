@@ -32,6 +32,7 @@ export default function CardTrickScreen({ gender, zodiac, onBack }: CardTrickScr
   // --- Face-down / Sensor State ---
   const [isPhysicallyFaceDown, setIsPhysicallyFaceDown] = useState<boolean>(false);
   const [isInterceptorArmed, setIsInterceptorArmed] = useState<boolean>(false);
+  const [instantReveal, setInstantReveal] = useState<boolean>(false);
   
   const [sensorStatus, setSensorStatus] = useState<'unsupported' | 'checking' | 'active' | 'denied' | 'bypass'>('checking');
   const [isLockedBySpectator, setIsLockedBySpectator] = useState<boolean>(false);
@@ -66,6 +67,7 @@ export default function CardTrickScreen({ gender, zodiac, onBack }: CardTrickScr
     setIsLockedBySpectator(false);
     setSpectatorSelectedIndex(null);
     setIsInterceptorArmed(false);
+    setInstantReveal(false);
     
     // Check if the trick was already completed once on this device
     const hasUsed = typeof window !== 'undefined' && localStorage.getItem('celestial_ritual_completed') === 'true';
@@ -82,6 +84,7 @@ export default function CardTrickScreen({ gender, zodiac, onBack }: CardTrickScr
     setSelectedCard(null);
     setIsLockedBySpectator(false);
     setSpectatorSelectedIndex(null);
+    setInstantReveal(false);
     
     // Check if the trick was already completed once on this device
     const hasUsed = typeof window !== 'undefined' && localStorage.getItem('celestial_ritual_completed') === 'true';
@@ -189,6 +192,7 @@ export default function CardTrickScreen({ gender, zodiac, onBack }: CardTrickScr
     }
 
     setHasTriggeredTrick(true);
+    setInstantReveal(true);
     setSpectatorSelectedIndex(chosenIdx);
     setIsLockedBySpectator(true);
     
@@ -221,9 +225,21 @@ export default function CardTrickScreen({ gender, zodiac, onBack }: CardTrickScr
       handleFaceDownScreenTap();
       return;
     }
+    setInstantReveal(false);
     if (soundEnabled) playChimeSound();
     setSelectedCard(card);
     logSecret(`点击校对牌 [${index + 1}]: ${getSuitName(card.suit)}${card.value}`);
+  };
+
+  const handleDismissResult = () => {
+    if (hasTriggeredTrick) {
+      logSecret('✨ 契约誓盟已成。为合理终结演出并防止观众反悔点击其他卡牌，点击任意位置将自动无痕返回星座主页。');
+      onBack();
+    } else {
+      setSelectedCard(null);
+      setIsLockedBySpectator(false);
+      setSpectatorSelectedIndex(null);
+    }
   };
 
   return (
@@ -389,24 +405,21 @@ export default function CardTrickScreen({ gender, zodiac, onBack }: CardTrickScr
       <AnimatePresence>
         {selectedCard && (
           <motion.div
-            initial={{ opacity: 0 }}
+            initial={instantReveal ? { opacity: 1 } : { opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            onClick={() => {
-              setSelectedCard(null);
-              setIsLockedBySpectator(false);
-              setSpectatorSelectedIndex(null);
-            }}
-            className="fixed inset-0 bg-white/96 backdrop-blur-md z-50 flex flex-col justify-center items-center p-6 select-none cursor-pointer text-center animate-fade-in"
+            transition={instantReveal ? { duration: 0 } : undefined}
+            onClick={handleDismissResult}
+            className="fixed inset-0 bg-white/96 backdrop-blur-md z-50 flex flex-col justify-center items-center p-6 select-none cursor-pointer text-center"
           >
             {/* Elegant deep silver light effect */}
             <div className="absolute top-1/2 left-1/2 w-64 h-64 rounded-full bg-zinc-200/40 blur-[120px] -translate-x-1/2 -translate-y-1/2 pointer-events-none" />
 
             <motion.div
-              initial={{ scale: 0.6, rotateY: 90 }}
+              initial={instantReveal ? { scale: 1, rotateY: 0 } : { scale: 0.6, rotateY: 90 }}
               animate={{ scale: 1, rotateY: 0 }}
-              exit={{ scale: 0.6, rotateY: 90 }}
-              transition={{ type: 'spring', damping: 20, stiffness: 100 }}
+              exit={instantReveal ? { scale: 1, rotateY: 0 } : { scale: 0.6, rotateY: 90 }}
+              transition={instantReveal ? { duration: 0 } : { type: 'spring', damping: 20, stiffness: 100 }}
               onClick={(e) => e.stopPropagation()} 
               className="w-full max-w-[190px] aspect-[2/3] rounded-xl bg-white border border-zinc-200 shadow-[0_12px_45px_rgba(0,0,0,0.08)] flex flex-col justify-between p-4 relative cursor-default"
             >
@@ -441,8 +454,9 @@ export default function CardTrickScreen({ gender, zodiac, onBack }: CardTrickScr
 
             {/* Magician Narrative Result details */}
             <motion.div 
-              initial={{ opacity: 0, y: 10 }}
+              initial={instantReveal ? { opacity: 1, y: 0 } : { opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
+              transition={instantReveal ? { duration: 0 } : undefined}
               className="mt-5 max-w-xs select-none"
             >
               <h3 className="text-base font-serif text-zinc-950 tracking-widest uppercase">
@@ -464,11 +478,7 @@ export default function CardTrickScreen({ gender, zodiac, onBack }: CardTrickScr
               </div>
               
               <button
-                onClick={() => {
-                  setSelectedCard(null);
-                  setIsLockedBySpectator(false);
-                  setSpectatorSelectedIndex(null);
-                }}
+                onClick={handleDismissResult}
                 className="mt-5 px-8 py-2.5 rounded-full text-[10px] font-bold font-serif tracking-[0.2em] text-white bg-zinc-950 hover:bg-zinc-900 transition-all cursor-pointer uppercase shadow-md hover:shadow-lg"
               >
                 好的 OK
